@@ -133,32 +133,14 @@ plot(rf.pred.c, cool.test$CoolingLoad)
 plot(rf.model.c)
 which.min(rf.model.c$mse)
 
-# -- ranger -- #
-OOB_RMSE <- vector(mode = "numeric", length = 100)
-
-for(i in seq_along(OOB_RMSE)) {
-
-      optimal_ranger <- ranger(
-            formula         = HeatingLoad ~ ., 
-            data            = train[,1:9], 
-            num.trees       = 500,
-            mtry            = 5,
-            min.node.size   = 5,
-            sample.fraction = .8,
-            importance      = 'impurity'
-      )
-
-      OOB_RMSE[i] <- sqrt(optimal_ranger$prediction.error)
-}
-
-hist(OOB_RMSE, breaks = 20)
-
 # -- variable importance -- #
-ggplot(optimal_ranger$variable.importance, aes(x=reorder(variable,importance), 
-                                               y=importance,fill=importance))+ 
+DF <- DF %>% mutate(IncMSE = X.IncMSE/100)
+
+ggplot(DF, aes(x=reorder(Variable,IncMSE), y=IncMSE,fill=IncMSE))+ 
       geom_bar(stat="identity", position="dodge")+ coord_flip()+
       ylab("Variable Importance")+
       xlab("")+
       ggtitle("Information Value Summary")+
       guides(fill=F)+
-      scale_fill_gradient(low="red", high="blue")
+      scale_fill_gradient(low="lightblue", high="darkblue")
+
