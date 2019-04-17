@@ -7,7 +7,7 @@ library(corrgram)
 library(tidyr)
 library("PerformanceAnalytics")
 library(ranger)
-
+library(MASS)
 #--------------------------------- 1. Get Data --------------------------------#
 #--- create data directory and add it to .gitignore ---#
 if(!file.exists("./data")) {
@@ -52,44 +52,23 @@ corrgram(energy.raw,order=TRUE, lower.panel=panel.shade,
 
 chart.Correlation(energy.raw, histogram=TRUE, pch=19)
 
-p <- ggplot(energy.raw,aes(Height, HeatingLoad)) + 
-      geom_point(size=1.5)
-p
-
-p2 <- ggplot(energy.raw,aes(Height, Compactness)) + 
-      geom_point(size=1.5)
-p2
-
-p3 <- ggplot(energy.raw,aes(Compactness, CoolingLoad)) + 
-      geom_point(size=1.5)
-p3
-
-p4 <- ggplot(energy.raw,aes(RoofArea, CoolingLoad)) + 
-      geom_point(size=1.5)
-p4
-
-p5 <- ggplot(energy.raw,aes(RoofArea, HeatingLoad)) + 
-      geom_point(size=1.5)
-p5
-
-p6 <- ggplot(energy.raw,aes(Compactness, SurfaceArea)) + 
-      geom_point(size=1.5)
-p6
-
 
 #-------------------------------- 3. Split Data --------------------------------#
-
+set.seed(1234)
 sample <- sample.split(energy.raw, .7)
 train <- subset(energy.raw,sample == T)
 test <- subset(energy.raw, sample == F)
 
 #---------------------------------- 4. Models ----------------------------------#
 
-heat.train <- as.data.frame(scale(train[,1:9]))
-cool.train <- as.data.frame(scale(train[,c(1:8,10)]))
+heat.train <- as.data.frame(train[,1:9])
+heat.test <- as.data.frame(test[,1:9])
+summary(rr.huber.h <- rlm(HeatingLoad~ .-RoofArea, data = heat.train))
 
-heat.test <- as.data.frame(scale(test[,1:9]))
-cool.test <- as.data.frame(scale(test[,c(1:8,10)]))                            
+
+cool.train <- as.data.frame(train[,c(1:8,10)])
+cool.test <- as.data.frame(test[,c(1:8,10)]) 
+summary(rr.huber.c <- rlm(CoolingLoad~ .-RoofArea, data = cool.train))
 
 # -- linear -- #
 lmod1.h <- lm(HeatingLoad ~ ., data=heat.train)
@@ -103,6 +82,12 @@ summary(lmod3.h)
 
 lmod4.h <- lm(HeatingLoad ~ . - RoofArea -GlazingDist - Orientation, heat.train)
 summary(lmod4.h)
+
+lmod5.h <- lm(HeatingLoad ~ . - RoofArea -GlazingDist - Orientation -Compactness, heat.train)
+summary(lmod5.h)
+
+lmod6.h <- lm(HeatingLoad ~ . - RoofArea -GlazingDist - Orientation - SurfaceArea, heat.train)
+summary(lmod6.h)
 
 lmod1.c <- lm(CoolingLoad ~ ., data=cool.train)
 summary(lmod1.c)
@@ -134,17 +119,17 @@ plot(l.pred.c, test$CoolingLoad)
 
 # --- Random Forests --- #
 set.seed(101)
-rf.model.h <- randomForest(HeatingLoad ~ . , data = train[,1:9], importance = T)
+rf.model.h <- randomForest(HeatingLoad ~ . , data = heat.train, importance = T)
 print(rf.model.h)
 rf.pred.h <- predict(rf.model.h, test[,1:9])
 plot(rf.pred.h, test$HeatingLoad)
 plot(rf.model.h)
 which.min(rf.model.h$mse)
 
-rf.model.c <- randomForest(CoolingLoad ~ . , data = train[,c(1:8,10)], importance = T, ntree=300)
+rf.model.c <- randomForest(CoolingLoad ~ . , data = cool.train, importance = T)
 print(rf.model.c)
-rf.pred.c <- predict(rf.model.c, test[,c(1:8,10)])
-plot(rf.pred.h, test$CoolingLoad)
+rf.pred.c <- predict(rf.model.c, cool.test)
+plot(rf.pred.c, cool.test$CoolingLoad)
 plot(rf.model.c)
 which.min(rf.model.c$mse)
 
